@@ -1,4 +1,4 @@
-using Domain.Composition;
+using Domain.Components;
 using Domain.Exceptions;
 using Domain.Versions;
 

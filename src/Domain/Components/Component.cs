@@ -1,7 +1,7 @@
 ﻿using Domain.Exceptions;
 using Domain.Objects;
 
-namespace Domain.Composition
+namespace Domain.Components
 {
     public sealed class Component
     {

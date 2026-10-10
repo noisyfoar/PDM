@@ -1,4 +1,4 @@
-using Domain.Composition;
+using Domain.Components;
 using Domain.Objects;
 using Domain.Versions;
 using Microsoft.EntityFrameworkCore;

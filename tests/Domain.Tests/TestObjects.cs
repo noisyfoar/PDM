@@ -1,4 +1,4 @@
-using Domain.Composition;
+using Domain.Components;
 using Domain.Objects;
 
 namespace Domain.Tests;
