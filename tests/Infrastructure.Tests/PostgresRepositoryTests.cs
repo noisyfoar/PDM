@@ -9,7 +9,7 @@ public sealed class PostgresRepositoryTests : IAsyncLifetime
 {
     private readonly PostgresDatabase _database = new(
         Environment.GetEnvironmentVariable("PDM_TEST_CONNECTION_STRING") ??
-        "Host=localhost;Port=55432;Database=pdm_test;Username=admin;Password=admin");
+        "Host=localhost;Port=55432;Database=pdm_migrate_test2;Username=admin;Password=admin");
 
     public async Task InitializeAsync() => await _database.InitializeAsync();
     public async Task DisposeAsync() => await _database.DisposeAsync();
