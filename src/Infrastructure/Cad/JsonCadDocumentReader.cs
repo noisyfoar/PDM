@@ -1,5 +1,5 @@
 using System.Text.Json;
-using Contracts.CAD.Enums;
+using Application.Services;
 using Contracts.CAD.Interfaces;
 using Contracts.CAD.Records;
 
@@ -14,13 +14,7 @@ public sealed class JsonCadDocumentReader : ICadDocumentReader
         using var json = await JsonDocument.ParseAsync(stream, new JsonDocumentOptions(), ct);
         var root = json.RootElement;
 
-        var type = root.GetProperty("type").GetString() switch
-        {
-            "Assembly" => CadDocumentType.Assembly,
-            "Part" => CadDocumentType.Part,
-            "StandardPart" => CadDocumentType.StandardPart,
-            var value => throw new FormatException($"Неизвестный тип CAD-документа: {value}")
-        };
+        var type = root.GetProperty("type").GetString().ToDocument();
 
         var properties = root.TryGetProperty("properties", out var p) ? p : default;
         decimal? mass = null;

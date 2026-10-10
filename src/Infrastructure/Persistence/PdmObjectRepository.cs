@@ -35,13 +35,25 @@ internal sealed class PdmObjectRepository : IPdmObjectRepository
             .SingleOrDefaultAsync(x => x.Versions.OrderByDescending(v => v.VersionNumber).Select(v => v.Name).First() == name, ct);
     }
 
-    public async Task<IReadOnlyList<PDMObject>> SearchAsync(string searchText, CancellationToken ct = default)
+    public async Task<IReadOnlyList<PDMObject>> SearchAsync(
+        string searchText,
+        CancellationToken ct = default)
     {
+        ArgumentException.ThrowIfNullOrWhiteSpace(searchText);
+
         _unitOfWork.RequireTransaction();
-        searchText ??= string.Empty;
+
         var objects = await Query().ToListAsync(ct);
-        return objects.Where(x => (x.Designation?.Value.Contains(searchText, StringComparison.OrdinalIgnoreCase) ?? false) ||
-            x.Name.Contains(searchText, StringComparison.OrdinalIgnoreCase)).ToList();
+
+        return objects
+            .Where(obj =>
+                obj.Designation?.Value.Contains(
+                    searchText,
+                    StringComparison.OrdinalIgnoreCase) == true ||
+                obj.Name.Contains(
+                    searchText,
+                    StringComparison.OrdinalIgnoreCase))
+            .ToList();
     }
 
     public async Task SaveAsync(PDMObject pdmObject, CancellationToken ct = default)

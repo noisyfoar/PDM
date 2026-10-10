@@ -11,6 +11,7 @@ public interface IPdmObjectRepository
 
     // Для повторного импорта: поиск существующего стандартного изделия по наименованию.
     Task<PDMObject?> GetStandardPartByNameAsync(string name, CancellationToken ct = default);
+    // Поиск объектов по тексту в наименовании или обозначении.
     Task<IReadOnlyList<PDMObject>> SearchAsync(string searchText, CancellationToken ct = default);
     Task SaveAsync(PDMObject pdmObject, CancellationToken ct = default);
 }
