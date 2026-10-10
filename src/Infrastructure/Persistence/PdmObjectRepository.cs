@@ -25,14 +25,17 @@ internal sealed class PdmObjectRepository : IPdmObjectRepository
     {
         ArgumentNullException.ThrowIfNull(designation);
         _unitOfWork.RequireTransaction();
-        return await Query().SingleOrDefaultAsync(x => x.Designation == designation, ct);
+        var objects = await Query().ToListAsync(ct);
+        return objects.SingleOrDefault(x => x.Designation?.Value == designation.Value);
     }
 
     public async Task<PDMObject?> GetStandardPartByNameAsync(string name, CancellationToken ct = default)
     {
         _unitOfWork.RequireTransaction();
-        return await Query().Where(x => x.ObjectType == ObjectType.StandardPart)
-            .SingleOrDefaultAsync(x => x.Versions.OrderByDescending(v => v.VersionNumber).Select(v => v.Name).First() == name, ct);
+        var objects = await Query()
+            .Where(x => x.ObjectType == ObjectType.StandardPart)
+            .ToListAsync(ct);
+        return objects.SingleOrDefault(x => x.CurrentVersion?.Name == name);
     }
 
     public async Task<IReadOnlyList<PDMObject>> SearchAsync(
@@ -56,19 +59,17 @@ internal sealed class PdmObjectRepository : IPdmObjectRepository
             .ToList();
     }
 
-    public async Task SaveAsync(PDMObject pdmObject, CancellationToken ct = default)
+    public void Add(PDMObject pdmObject)
     {
         ArgumentNullException.ThrowIfNull(pdmObject);
         _unitOfWork.RequireTransaction();
-        var tracked = await _db.Objects.FindAsync([pdmObject.Id], ct);
-        if (tracked is null) _db.Objects.Add(pdmObject);
-        else _db.Entry(tracked).CurrentValues.SetValues(pdmObject);
-        await _db.SaveChangesAsync(ct);
+        _db.Objects.Add(pdmObject);
     }
 
     private IQueryable<PDMObject> Query() => _db.Objects
         .Include(x => x.Versions)
         .ThenInclude(x => x.Components)
         .ThenInclude(x => x.ChildObject)
+        .ThenInclude(x => x.Versions)
         .AsSplitQuery();
 }

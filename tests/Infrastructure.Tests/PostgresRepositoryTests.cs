@@ -23,7 +23,7 @@ public sealed class PostgresRepositoryTests : IAsyncLifetime
         await using (var work = _database.CreateUnitOfWork())
         {
             await work.BeginAsync();
-            await work.Objects.SaveAsync(source);
+            work.Objects.Add(source);
             await work.CommitAsync();
         }
 
@@ -46,7 +46,7 @@ public sealed class PostgresRepositoryTests : IAsyncLifetime
         await using (var work = _database.CreateUnitOfWork())
         {
             await work.BeginAsync();
-            await work.Objects.SaveAsync(source);
+            work.Objects.Add(source);
             await work.RollbackAsync();
         }
 
@@ -67,11 +67,15 @@ public sealed class PostgresRepositoryTests : IAsyncLifetime
         await using (var work = _database.CreateUnitOfWork())
         {
             await work.BeginAsync();
-            await work.Objects.SaveAsync(part);
-            var found = await work.Objects.SearchAsync(marker);
-            Assert.Contains(found, x => x.Id == part.Id);
-            await work.RollbackAsync();
+            work.Objects.Add(part);
+            await work.CommitAsync();
         }
+
+        await using var read = _database.CreateUnitOfWork();
+        await read.BeginAsync();
+        var found = await read.Objects.SearchAsync(marker);
+        Assert.Contains(found, x => x.Id == part.Id);
+        await read.RollbackAsync();
     }
 }
 

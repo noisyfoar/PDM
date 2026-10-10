@@ -35,6 +35,7 @@ internal sealed class UnitOfWork : IUnitOfWork
     public async Task CommitAsync(CancellationToken ct = default)
     {
         RequireTransaction();
+        await _context.SaveChangesAsync(ct);
         await _transaction!.CommitAsync(ct);
         await _transaction.DisposeAsync();
         _transaction = null;
