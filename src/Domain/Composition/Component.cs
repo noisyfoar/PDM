@@ -1,22 +1,23 @@
 ﻿using Domain.Exceptions;
 using Domain.Objects;
 
-namespace Domain.Composition;
-
-public sealed class Component
+namespace Domain.Composition
 {
-    public PDMObject ChildObject { get; }
-    public int Quantity { get; }
-
-    public Component(PDMObject childObject, int quantity)
+    public sealed class Component
     {
-        if (childObject is null)
-            throw new PDMException("Дочерний объект не может отсутствовать.");
+        public PDMObject ChildObject { get; }
+        public int Quantity { get; }
 
-        if (quantity <= 0)
-            throw new ArgumentException("Количество должно быть больше нуля.");
+        public Component(PDMObject childObject, int quantity)
+        {
+            if (childObject is null)
+                throw new PDMException("Дочерний объект не может отсутствовать.");
 
-        ChildObject = childObject;
-        Quantity = quantity;
+            if (quantity <= 0)
+                throw new ArgumentException("Количество должно быть больше нуля.");
+
+            ChildObject = childObject;
+            Quantity = quantity;
+        }
     }
 }

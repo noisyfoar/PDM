@@ -6,7 +6,6 @@ namespace Domain.Objects;
 
 public sealed class PDMObject
 {
-
     public Guid Id { get; }
     public ObjectType ObjectType { get; }
     public Designation? Designation { get; }

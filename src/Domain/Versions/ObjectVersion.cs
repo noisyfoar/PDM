@@ -1,5 +1,4 @@
-﻿using System.Linq;
-using Domain.Composition;
+﻿using Domain.Composition;
 using Domain.Exceptions;
 using Domain.Objects;
 
