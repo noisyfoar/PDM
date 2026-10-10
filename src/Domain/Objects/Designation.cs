@@ -5,18 +5,18 @@ namespace Domain.Objects
 {
     public class Designation
     {
-        private static readonly Regex Pattern = new(@"^[А-ЯЁ]{4}\.\d{6}\.\d{3}$");
+        private static readonly Regex Pattern = new(@"\A[А-ЯЁ]{4}\.[0-9]{6}\.[0-9]{3}\z"); // Пример формата: "АБВГ.123456.789"
         public string Value { get; private set; }
 
         private Designation(string value)
         {
             Value = value;
         }
-        public static Designation Create(string value)
+        public static Designation Create(string? value)
         {
-            if (!Pattern.IsMatch(value))
+            if (string.IsNullOrWhiteSpace(value) || !Pattern.IsMatch(value)) // Проверка на null, пустую строку и соответствие формату
             {
-                throw new PDMException("Invalid designation format.");
+                throw new PDMException("Неверный формат обозначения.");
             }
             return new Designation(value);
         }

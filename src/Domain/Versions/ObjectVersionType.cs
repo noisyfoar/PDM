@@ -4,6 +4,6 @@
     {
         InWork,
         Approved,
-        Disapproved,
+        Annulled,
     }
 }

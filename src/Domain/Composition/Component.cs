@@ -1,31 +1,22 @@
 ﻿using Domain.Exceptions;
-using System;
-using System.Collections.Generic;
-using System.Text;
+using Domain.Objects;
 
-namespace Domain.Composition
+namespace Domain.Composition;
+
+public sealed class Component
 {
-    public class Component
+    public PDMObject ChildObject { get; }
+    public int Quantity { get; }
+
+    public Component(PDMObject childObject, int quantity)
     {
-        private int _quantity;
-        public int Quantity
-        {
-            get => _quantity;
-            private set
-            {
-                if (value <= 0)
-                {
-                    throw new ArgumentException("Quantity must be greater than zero.");
-                }
-                _quantity = value;
-            }
-        }
-        public Guid ChildObjectId { get; }
-        public Component(Guid childObjectId, int quantity)
-        {
-            if(childObjectId == Guid.Empty) throw new PDMException("ChildObjectId cannot be empty.");
-            ChildObjectId = childObjectId;
-            Quantity = quantity;
-        }
+        if (childObject is null)
+            throw new PDMException("Дочерний объект не может отсутствовать.");
+
+        if (quantity <= 0)
+            throw new ArgumentException("Количество должно быть больше нуля.");
+
+        ChildObject = childObject;
+        Quantity = quantity;
     }
 }

@@ -1,63 +1,110 @@
-﻿using Domain.Exceptions;
+﻿using System.Linq;
+using Domain.Composition;
+using Domain.Exceptions;
+using Domain.Objects;
 
-namespace Domain.Versions
+namespace Domain.Versions;
+
+public sealed class ObjectVersion
 {
-    public class ObjectVersion
+    public Guid Id { get; }
+    public PDMObject Owner { get; }
+    public ObjectVersionType VersionType { get; private set; } = ObjectVersionType.InWork;
+    public int VersionNumber { get; }
+    public string Name { get; private set; } = string.Empty;
+    public string? Material { get; private set; }
+    public decimal? MassKg { get; private set; }
+    private readonly List<Component> _components = [];
+    public IReadOnlyList<Component> Components => _components.AsReadOnly();
+    public DateTime CreatedAt { get; }
+
+    internal ObjectVersion(PDMObject owner, int versionNumber, string name, string? material, decimal? massKg, IReadOnlyList<Component> components)
     {
-        public Guid Id { get; set; }
-        public Guid ObjectId { get; set; }
-        public ObjectVersionType VersionType { get; private set; }
-        public int VersionNumber { get; set; }
-        public string? Material { get; private set; }
-        private decimal? _massKg;
-        public decimal? MassKg
-        {
-            get
-            {
-                return _massKg;
-            }
-            private set
-            {
-                if(value < 0)
-                {
-                    throw new PDMException("MassKg cannot be negative.");
-                }
-                _massKg = value;
-            }
-        }
-        private readonly List<Composition.Component> _components = [];
-        public IReadOnlyList<Composition.Component> Components => _components.AsReadOnly();
+        if (owner is null)
+            throw new PDMException("Объект-владелец версии не может отсутствовать.");
 
-        public DateTime CreatedAt { get;}
+        if (versionNumber < 1)
+            throw new PDMException("Номер версии должен быть больше нуля.");
 
-        public ObjectVersion(Guid objectId, ObjectVersionType versionType, int versionNumber, string? material, decimal? massKg)
+        Id = Guid.NewGuid();
+        Owner = owner;
+        VersionNumber = versionNumber;
+        CreatedAt = DateTime.UtcNow;
+
+        Update(name, material, massKg, components);
+    }
+
+    public void Update(
+        string name,
+        string? material,
+        decimal? massKg,
+        IReadOnlyList<Component> components)
+    {
+        EnsureInWork();
+
+        if (string.IsNullOrWhiteSpace(name))
+            throw new PDMException("Наименование не может быть пустым.");
+
+        if (massKg < 0)
+            throw new PDMException("Масса не может быть отрицательной.");
+
+        if (Owner.ObjectType == ObjectType.Part && string.IsNullOrWhiteSpace(material))
+            throw new PDMException("Для детали необходимо указать материал.");
+
+        if (Owner.ObjectType != ObjectType.Part && material is not null)
+            throw new PDMException("Материал можно указывать только для деталей.");
+
+        if (Owner.ObjectType == ObjectType.Assembly && massKg is not null)
+            throw new PDMException("Масса сборки должна вычисляться по её составу.");
+
+        if (Owner.ObjectType == ObjectType.StandardPart && massKg is null)
+            throw new PDMException("Для стандартного изделия необходимо указать массу.");
+
+        if (components is null)
+            throw new PDMException("Список компонентов не может отсутствовать.");
+
+        // Снимок создаётся до изменения полей и очистки текущего состава.
+        var snapshot = components.ToArray();
+
+        if (Owner.ObjectType != ObjectType.Assembly && snapshot.Length > 0)
+            throw new PDMException("Компоненты могут быть только у сборок.");
+
+        var childIds = new HashSet<Guid>();
+        foreach (var component in snapshot)
         {
-            if (objectId == Guid.Empty) throw new PDMException("ObjectId cannot be empty.");
-            if (versionNumber < 1) throw new PDMException("VersionNumber must be greater than zero.");
-            Id = Guid.NewGuid();
-            ObjectId = objectId;
-            VersionType = versionType;
-            VersionNumber = versionNumber;
-            Material = material;
-            MassKg = massKg;
-            CreatedAt = DateTime.UtcNow;
-        }
-        public void Approve()
-        {
-            if (VersionType != ObjectVersionType.InWork)
-            {
-                throw new PDMException("Only InWork versions can be approved.");
-            }
-            VersionType = ObjectVersionType.Approved;
-        }
-        public void Disapprove()
-        {
-            if (VersionType == ObjectVersionType.Disapproved)
-            {
-                throw new PDMException("Disapproved version cannot be disapproved again.");
-            }
-            VersionType = ObjectVersionType.Disapproved;
+            if (component is null)
+                throw new PDMException("Компонент не может отсутствовать.");
+
+            if (component.ChildObject.Id == Owner.Id)
+                throw new PDMException("Сборка не может содержать саму себя.");
+
+            if (!childIds.Add(component.ChildObject.Id))
+                throw new PDMException("Один и тот же компонент не может повторяться в составе.");
         }
 
+        Name = name;
+        Material = material;
+        MassKg = massKg;
+        _components.Clear();
+        _components.AddRange(snapshot); // создаем копию списка компонентов, чтобы избежать внешних изменений
+    }
+    public void Approve()
+    {
+        EnsureInWork();
+        VersionType = ObjectVersionType.Approved;
+    }
+
+    public void Annul()
+    {
+        if (VersionType == ObjectVersionType.Annulled)
+            throw new PDMException("Версия уже аннулирована.");
+
+        VersionType = ObjectVersionType.Annulled;
+    }
+
+    private void EnsureInWork()
+    {
+        if (VersionType != ObjectVersionType.InWork)
+            throw new PDMException("Изменять и утверждать можно только версии в состоянии «В работе».");
     }
 }
