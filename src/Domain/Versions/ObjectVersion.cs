@@ -17,6 +17,9 @@ public sealed class ObjectVersion
     public IReadOnlyList<Component> Components => _components.AsReadOnly();
     public DateTime CreatedAt { get; }
 
+    // EF Core заполняет свойства и навигации из БД через закрытые поля.
+    private ObjectVersion() => Owner = null!;
+
     internal ObjectVersion(PDMObject owner, int versionNumber, string name, string? material, decimal? massKg, IReadOnlyList<Component> components)
     {
         if (owner is null)
@@ -106,4 +109,5 @@ public sealed class ObjectVersion
         if (VersionType != ObjectVersionType.InWork)
             throw new PDMException("Изменять и утверждать можно только версии в состоянии «В работе».");
     }
+
 }

@@ -8,6 +8,9 @@ namespace Domain.Composition
         public PDMObject ChildObject { get; }
         public int Quantity { get; }
 
+        // EF Core заполняет свойства и навигации из БД через закрытые поля.
+        private Component() => ChildObject = null!;
+
         public Component(PDMObject childObject, int quantity)
         {
             if (childObject is null)

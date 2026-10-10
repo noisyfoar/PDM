@@ -107,6 +107,7 @@
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Domain.Tests/Domain.Tests.csproj" />
+    <Project Path="tests/Infrastructure.Tests/Infrastructure.Tests.csproj" />
   </Folder>
   <Folder Name="/Элементы решения/">
     <File Path="docker-compose.yml" />

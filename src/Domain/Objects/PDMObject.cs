@@ -10,9 +10,14 @@ public sealed class PDMObject
     public ObjectType ObjectType { get; }
     public Designation? Designation { get; }
     private readonly List<ObjectVersion> _versions = [];
-    public IReadOnlyList<ObjectVersion> Versions => _versions.AsReadOnly();
-    public ObjectVersion? CurrentVersion => _versions.LastOrDefault(version => version.VersionType != ObjectVersionType.Annulled); // текущая версия - последняя неаннулированная версия
-    public string Name => (CurrentVersion ?? _versions[^1]).Name; // если текущей версии нет, берем последнюю версию
+    public IReadOnlyList<ObjectVersion> Versions => _versions.OrderBy(version => version.VersionNumber).ToList().AsReadOnly(); // сортируем версии по возрастанию номера версии 
+    public ObjectVersion? CurrentVersion => _versions
+        .Where(version => version.VersionType != ObjectVersionType.Annulled)
+        .MaxBy(version => version.VersionNumber);
+    public string Name => (CurrentVersion ?? _versions.MaxBy(version => version.VersionNumber)!).Name; // если текущей версии нет, берем последнюю версию
+
+    // EF Core заполняет свойства и навигации из БД через закрытые поля.
+    private PDMObject() { }
 
     public PDMObject(
         ObjectType objectType,
@@ -39,7 +44,8 @@ public sealed class PDMObject
 
         Id = Guid.NewGuid();
         ObjectType = objectType;
-        Designation = designation;
+        // Обозначение — значение: у каждого объекта свой экземпляр с тем же текстом.
+        Designation = designation is null ? null : Designation.Create(designation.Value);
         _versions = 
         [ 
             new ObjectVersion(this, 1, name, material, massKg, components ?? []), // создаем первую версию объекта
@@ -51,18 +57,19 @@ public sealed class PDMObject
         if (CurrentVersion?.VersionType == ObjectVersionType.InWork)
             throw new PDMException("Версия в состоянии «В работе» уже существует.");
 
-        if (_versions[^1].VersionNumber == int.MaxValue)
+        var latest = _versions.MaxBy(version => version.VersionNumber)!; // последняя версия объекта
+        if (latest.VersionNumber == int.MaxValue)
             throw new PDMException("Достигнут предел номера версии.");
 
-        var source = CurrentVersion ?? _versions[^1]; // если текущей версии нет, берем последнюю версию
+        var source = CurrentVersion ?? latest;
 
         var version = new ObjectVersion(
             this,
-            _versions[^1].VersionNumber + 1, // номер новой версии на 1 больше, чем у последней версии
+            latest.VersionNumber + 1,
             source.Name,
             source.Material,
             source.MassKg,
-            source.Components);
+            [.. source.Components.Select(component => new Component(component.ChildObject, component.Quantity))]); // создаем новую версию объекта с теми же компонентами, что и у исходной версии
 
         _versions.Add(version);
 
