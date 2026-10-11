@@ -33,7 +33,7 @@ public sealed class CadFolderDocumentReader : ICadFolderDocumentReader
             {
                 documents.Add(await _documentReader.ReadAsync(path, ct));
             }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or FormatException or JsonException)
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or FormatException or JsonException or InvalidOperationException)
             {
                 errors.Add(new CadReadError(path, ex.Message));
             }

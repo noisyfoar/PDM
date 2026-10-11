@@ -18,8 +18,12 @@ public sealed class JsonCadDocumentReader : ICadDocumentReader
 
         var properties = root.TryGetProperty("properties", out var p) ? p : default;
         decimal? mass = null;
-        if (properties.TryGetProperty("mass", out var massElement))
+        if (properties.TryGetProperty("mass", out var massElement) &&
+            massElement.ValueKind != JsonValueKind.Null &&
+            massElement.ValueKind != JsonValueKind.Undefined)
+        {
             mass = massElement.GetDecimal();
+        }
 
         string? material = null;
         if (properties.TryGetProperty("material", out var materialElement))
