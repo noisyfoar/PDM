@@ -22,7 +22,7 @@ namespace Infrastructure.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
-            modelBuilder.Entity("Domain.Composition.Component", b =>
+            modelBuilder.Entity("Domain.Components.Component", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -31,7 +31,7 @@ namespace Infrastructure.Migrations
                     b.Property<Guid>("ChildObjectId")
                         .HasColumnType("uuid");
 
-                    b.Property<Guid?>("ParentVersionId")
+                    b.Property<Guid>("ParentVersionId")
                         .HasColumnType("uuid");
 
                     b.Property<int>("Quantity")
@@ -75,6 +75,9 @@ namespace Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<decimal?>("MassKg")
                         .HasPrecision(18, 6)
                         .HasColumnType("numeric(18,6)");
@@ -87,7 +90,7 @@ namespace Infrastructure.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)");
 
-                    b.Property<Guid?>("ObjectId")
+                    b.Property<Guid>("ObjectId")
                         .HasColumnType("uuid");
 
                     b.Property<int>("VersionNumber")
@@ -105,7 +108,7 @@ namespace Infrastructure.Migrations
                     b.ToTable("object_version", (string)null);
                 });
 
-            modelBuilder.Entity("Domain.Composition.Component", b =>
+            modelBuilder.Entity("Domain.Components.Component", b =>
                 {
                     b.HasOne("Domain.Objects.PDMObject", "ChildObject")
                         .WithMany()
@@ -115,7 +118,9 @@ namespace Infrastructure.Migrations
 
                     b.HasOne("Domain.Versions.ObjectVersion", null)
                         .WithMany("Components")
-                        .HasForeignKey("ParentVersionId");
+                        .HasForeignKey("ParentVersionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
 
                     b.Navigation("ChildObject");
                 });
@@ -124,7 +129,9 @@ namespace Infrastructure.Migrations
                 {
                     b.HasOne("Domain.Objects.PDMObject", "Owner")
                         .WithMany("Versions")
-                        .HasForeignKey("ObjectId");
+                        .HasForeignKey("ObjectId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
 
                     b.Navigation("Owner");
                 });

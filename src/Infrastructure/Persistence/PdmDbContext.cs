@@ -23,7 +23,7 @@ public sealed class PdmDbContext : DbContext
             .HasConversion(x => x == null ? null : x.Value, x => x == null ? null : Designation.Create(x))
             .HasMaxLength(16);
         objects.HasIndex(x => x.Designation).IsUnique();
-        objects.HasMany(x => x.Versions).WithOne(x => x.Owner).HasForeignKey("ObjectId");
+        objects.HasMany(x => x.Versions).WithOne(x => x.Owner).HasForeignKey("ObjectId").IsRequired();
 
         var versions = modelBuilder.Entity<ObjectVersion>();
         versions.ToTable("object_version");
@@ -31,15 +31,16 @@ public sealed class PdmDbContext : DbContext
         versions.Property(x => x.VersionType).HasConversion<string>().IsRequired();
         versions.Property(x => x.Name).IsRequired().HasMaxLength(500);
         versions.Property(x => x.MassKg).HasPrecision(18, 6);
+        versions.Property(x => x.CreatedAt).IsRequired();
         versions.HasIndex("ObjectId", nameof(ObjectVersion.VersionNumber)).IsUnique();
-        versions.HasMany(x => x.Components).WithOne().HasForeignKey("ParentVersionId");
+        versions.HasMany(x => x.Components).WithOne().HasForeignKey("ParentVersionId").IsRequired();
 
         var components = modelBuilder.Entity<Component>();
         components.ToTable("bom_link");
         components.Property<Guid>("Id");
         components.HasKey("Id");
         components.Property(x => x.Quantity).IsRequired();
-        components.HasOne(x => x.ChildObject).WithMany().HasForeignKey("ChildObjectId").OnDelete(DeleteBehavior.Restrict);
+        components.HasOne(x => x.ChildObject).WithMany().HasForeignKey("ChildObjectId").IsRequired().OnDelete(DeleteBehavior.Restrict);
         components.HasIndex("ParentVersionId", "ChildObjectId").IsUnique();
     }
 }
