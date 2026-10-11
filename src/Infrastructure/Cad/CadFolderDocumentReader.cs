@@ -33,12 +33,16 @@ public sealed class CadFolderDocumentReader : ICadFolderDocumentReader
             {
                 documents.Add(await _documentReader.ReadAsync(path, ct));
             }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
             catch (Exception ex)
             {
                 errors.Add(new CadReadError(path, ex.Message));
             }
         }
-
+        ct.ThrowIfCancellationRequested();
         return new CadFolderReadResult(documents, errors);
     }
 

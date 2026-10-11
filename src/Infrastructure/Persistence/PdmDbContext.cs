@@ -27,7 +27,7 @@ public sealed class PdmDbContext : DbContext
 
         var versions = modelBuilder.Entity<ObjectVersion>();
         versions.ToTable("object_version");
-        versions.HasKey(x => x.Id);
+        versions.Property(x => x.Id).ValueGeneratedNever();
         versions.Property(x => x.VersionType).HasConversion<string>().IsRequired();
         versions.Property(x => x.Name).IsRequired().HasMaxLength(500);
         versions.Property(x => x.MassKg).HasPrecision(18, 6);
