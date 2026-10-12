@@ -13,6 +13,28 @@ public sealed class PdmDbContext : DbContext
 
     public PdmDbContext(DbContextOptions<PdmDbContext> options) : base(options) { }
 
+    public override int SaveChanges(bool acceptAllChangesOnSuccess)
+    {
+        SynchronizeStandardNames();
+        return base.SaveChanges(acceptAllChangesOnSuccess);
+    }
+
+    public override Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken ct = default)
+    {
+        SynchronizeStandardNames();
+        return base.SaveChangesAsync(acceptAllChangesOnSuccess, ct);
+    }
+
+    private void SynchronizeStandardNames()
+    {
+        foreach (var entry in ChangeTracker.Entries<PDMObject>())
+        {
+            if (entry.State == EntityState.Deleted || entry.Entity.Versions.Count == 0) continue;
+            entry.Property<string?>("StandardName").CurrentValue =
+                entry.Entity.ObjectType == ObjectType.StandardPart ? entry.Entity.Name : null;
+        }
+    }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         var objects = modelBuilder.Entity<PDMObject>();
@@ -23,14 +45,17 @@ public sealed class PdmDbContext : DbContext
             .HasConversion(x => x == null ? null : x.Value, x => x == null ? null : Designation.Create(x))
             .HasMaxLength(16);
         objects.HasIndex(x => x.Designation).IsUnique();
+        objects.Property<string?>("StandardName").HasColumnName("standard_name");
+        objects.HasIndex("StandardName").IsUnique();
         objects.HasMany(x => x.Versions).WithOne(x => x.Owner).HasForeignKey("ObjectId").IsRequired();
 
         var versions = modelBuilder.Entity<ObjectVersion>();
         versions.ToTable("object_version");
         versions.Property(x => x.Id).ValueGeneratedNever();
         versions.Property(x => x.VersionType).HasConversion<string>().IsRequired();
+        versions.Property(x => x.VersionNumber).IsRequired();
         versions.Property(x => x.Name).IsRequired().HasMaxLength(500);
-        versions.Property(x => x.MassKg).HasPrecision(18, 6);
+        versions.Property(x => x.MassKg).HasColumnType("numeric");
         versions.Property(x => x.CreatedAt).IsRequired();
         versions.HasIndex("ObjectId", nameof(ObjectVersion.VersionNumber)).IsUnique();
         versions.HasMany(x => x.Components).WithOne().HasForeignKey("ParentVersionId").IsRequired();

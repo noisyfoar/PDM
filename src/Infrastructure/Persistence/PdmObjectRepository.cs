@@ -5,7 +5,6 @@ using Microsoft.EntityFrameworkCore;
 namespace Infrastructure.Persistence;
 
 
-// cte ккрайне не рекомендуется особенно при горячих ручках условно так как это лишняя нагрузка на базу данных и рекомендуется использовать таблицы замыканий(Closure tables).
 internal sealed class PdmObjectRepository : IPdmObjectRepository
 {
     private readonly PdmDbContext _db;
@@ -25,19 +24,19 @@ internal sealed class PdmObjectRepository : IPdmObjectRepository
 
     public async Task<PDMObject?> GetByDesignationAsync(Designation designation, CancellationToken ct = default)
     {
-        ArgumentNullException.ThrowIfNullOrWhiteSpace(designation);
+        ArgumentNullException.ThrowIfNull(designation);
         _unitOfWork.RequireTransaction();
-        var objects = await Query().ToListAsync(ct); // ToDo: переписать 
-        return objects.SingleOrDefault(x => x.Designation?.Value == designation.Value);
+        return await Query().SingleOrDefaultAsync(x => x.Designation == designation, ct);
     }
 
     public async Task<PDMObject?> GetStandardPartByNameAsync(string name, CancellationToken ct = default)
     {
+        ArgumentException.ThrowIfNullOrWhiteSpace(name);
         _unitOfWork.RequireTransaction();
         var objects = await Query()
             .Where(x => x.ObjectType == ObjectType.StandardPart)
             .ToListAsync(ct);
-        return objects.SingleOrDefault(x => x.CurrentVersion?.Name == name);
+        return objects.SingleOrDefault(x => x.Name == name);
     }
 
     public async Task<IReadOnlyList<PDMObject>> SearchAsync(
