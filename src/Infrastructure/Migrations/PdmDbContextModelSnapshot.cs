@@ -61,9 +61,16 @@ namespace Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<string>("StandardName")
+                        .HasColumnType("text")
+                        .HasColumnName("standard_name");
+
                     b.HasKey("Id");
 
                     b.HasIndex("Designation")
+                        .IsUnique();
+
+                    b.HasIndex("StandardName")
                         .IsUnique();
 
                     b.ToTable("pdm_object", (string)null);
@@ -72,15 +79,13 @@ namespace Infrastructure.Migrations
             modelBuilder.Entity("Domain.Versions.ObjectVersion", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<decimal?>("MassKg")
-                        .HasPrecision(18, 6)
-                        .HasColumnType("numeric(18,6)");
+                        .HasColumnType("numeric");
 
                     b.Property<string>("Material")
                         .HasColumnType("text");
