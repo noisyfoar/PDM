@@ -5,7 +5,7 @@ namespace Domain.Objects
 {
     public class Designation
     {
-        private static readonly Regex Pattern = new(@"\A[А-ЯЁ]{4}\.[0-9]{6}\.[0-9]{3}\z"); // Пример формата: "АБВГ.123456.789"
+        private static readonly Regex Pattern = new(@"\A[А-ЯЁ]{4}\.[0-9]{6}\.[0-9]{3}\z", RegexOptions.Compiled); // Пример формата: "АБВГ.123456.789"
         public string Value { get; private set; }
 
         private Designation(string value)

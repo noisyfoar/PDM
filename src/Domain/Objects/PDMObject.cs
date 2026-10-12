@@ -42,7 +42,7 @@ public sealed class PDMObject
                 "Для сборок и деталей необходимо обозначение.");
         }
 
-        Id = Guid.NewGuid();
+        Id = Guid.CreateVersion7();
         ObjectType = objectType;
         // Обозначение — значение: у каждого объекта свой экземпляр с тем же текстом.
         Designation = designation is null ? null : Designation.Create(designation.Value);

@@ -1,7 +1,7 @@
-using System.Text.Json;
 using Application.Services;
 using Contracts.CAD.Interfaces;
 using Contracts.CAD.Records;
+using System.Text.Json;
 
 namespace Infrastructure.Cad;
 
@@ -11,7 +11,7 @@ public sealed class JsonCadDocumentReader : ICadDocumentReader
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
         await using var stream = File.OpenRead(path);
-        using var json = await JsonDocument.ParseAsync(stream, new JsonDocumentOptions(), ct);
+        using var json = await JsonDocument.ParseAsync(stream, new JsonDocumentOptions(), ct); //ToDo: сделать new JsonSerializerOptions() в статику, чтобы не создавать каждый раз
         var root = json.RootElement;
 
         var type = root.GetProperty("type").GetString().ToDocument();

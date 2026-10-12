@@ -2,6 +2,7 @@ using Domain.Objects;
 
 namespace Application.Interfaces.Persistence;
 
+// ToDo: добавить репозиторий для тестов, который живет в оперативной памяти и не ходит в базу данных. 
 public interface IPdmObjectRepository
 {
     Task<PDMObject?> GetByIdAsync(Guid id, CancellationToken ct = default);
