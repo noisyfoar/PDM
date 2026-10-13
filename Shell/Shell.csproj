@@ -8,4 +8,11 @@
     <UseWPF>true</UseWPF>
   </PropertyGroup>
 
+  <ItemGroup>
+    <PackageReference Include="Jab" Version="0.12.0" PrivateAssets="all" />
+    <ProjectReference Include="..\src\Application\Application.csproj" />
+    <ProjectReference Include="..\src\Infrastructure\Infrastructure.csproj" />
+    <None Update="appsettings.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>

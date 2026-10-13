@@ -15,13 +15,13 @@ public sealed class ImportCadFolderService : IImportCadFolderService
     private static readonly StringComparer FileNames = StringComparer.OrdinalIgnoreCase;
     private readonly ICadFolderDocumentReader _reader;
     private readonly ICadDomainMapper _mapper;
-    private readonly IUnitOfWork _unitOfWork;
+    private readonly IUnitOfWorkFactory _factory;
 
-    public ImportCadFolderService(ICadFolderDocumentReader reader, ICadDomainMapper mapper, IUnitOfWork unitOfWork)
+    public ImportCadFolderService(ICadFolderDocumentReader reader, ICadDomainMapper mapper, IUnitOfWorkFactory factory)
     {
         _reader = reader ?? throw new ArgumentNullException(nameof(reader));
         _mapper = mapper ?? throw new ArgumentNullException(nameof(mapper));
-        _unitOfWork = unitOfWork ?? throw new ArgumentNullException(nameof(unitOfWork));
+        _factory = factory ?? throw new ArgumentNullException(nameof(factory));
     }
 
     public async Task<ImportCadFolderReport> ExecuteAsync(string folderPath, CancellationToken ct = default)
@@ -53,12 +53,13 @@ public sealed class ImportCadFolderService : IImportCadFolderService
         RejectInvalidDependencies(items, rejected, ct);
         if (!ValidItems().Any()) return Report();
 
-        await _unitOfWork.BeginAsync(ct);
+        await using var work = _factory.CreateUnitOfWork();
+        await work.BeginAsync(ct);
         try
         {
             foreach (var item in ValidItems())
             {
-                var existing = await FindExistingAsync(item.Imported, ct);
+                var existing = await FindExistingAsync(work.Objects, item.Imported, ct);
                 if (existing is not null && existing.ObjectType != item.Imported.ObjectType)
                     rejected.TryAdd(item.Document.FileName, "Тип документа не совпадает с типом объекта с этим обозначением.");
                 else
@@ -88,7 +89,7 @@ public sealed class ImportCadFolderService : IImportCadFolderService
             RejectInvalidDependencies(items, rejected, ct);
             if (!ValidItems().Any())
             {
-                await _unitOfWork.RollbackAsync(CancellationToken.None);
+                await work.RollbackAsync(CancellationToken.None);
                 return Report();
             }
 
@@ -101,12 +102,12 @@ public sealed class ImportCadFolderService : IImportCadFolderService
             }
             // Состав уже ссылается на единственные экземпляры существующих или новых объектов.
             foreach (var item in ValidItems().Where(item => item.IsNew))
-                _unitOfWork.Objects.Add(item.Target);
-            await _unitOfWork.CommitAsync(ct);
+                work.Objects.Add(item.Target);
+            await work.CommitAsync(ct);
         }
         catch (Exception importError)
         {
-            try { await _unitOfWork.RollbackAsync(CancellationToken.None); }
+            try { await work.RollbackAsync(CancellationToken.None); }
             catch (Exception rollbackError)
             {
                 throw new AggregateException("Не удалось выполнить импорт и откатить транзакцию.", importError, rollbackError);
@@ -120,10 +121,10 @@ public sealed class ImportCadFolderService : IImportCadFolderService
             rejected.Select(item => new ImportRejectedFile(item.Key, item.Value)).ToList().AsReadOnly(), warnings.AsReadOnly());
     }
 
-    private Task<PDMObject?> FindExistingAsync(PDMObject imported, CancellationToken ct) =>
+    private static Task<PDMObject?> FindExistingAsync(IPdmObjectRepository objects, PDMObject imported, CancellationToken ct) =>
         imported.ObjectType == ObjectType.StandardPart
-            ? _unitOfWork.Objects.GetStandardPartByNameAsync(imported.Name, ct)
-            : _unitOfWork.Objects.GetByDesignationAsync(imported.Designation!, ct);
+            ? objects.GetStandardPartByNameAsync(imported.Name, ct)
+            : objects.GetByDesignationAsync(imported.Designation!, ct);
 
     private static string ApplyImport(ImportItem item)
     {

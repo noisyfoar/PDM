@@ -21,7 +21,7 @@ public sealed class ImportCadFolderServiceTests
     private static Task<ImportCadFolderReport> Import(Work work, params CadDocument[] documents) =>
         Service(work, new CadFolderReadResult(documents, [])).ExecuteAsync("папка");
     private static ImportCadFolderService Service(Work work, CadFolderReadResult result) =>
-        new(new Reader(result), new CadDomainMapper(), work);
+        new(new Reader(result), new CadDomainMapper(), new SingleWorkFactory(work));
 
     [Fact]
     public async Task NewAssemblyReferencesExistingChildAndIsIndependentOfDocumentOrder()
@@ -267,7 +267,7 @@ public sealed class ImportCadFolderServiceTests
     {
         using var cancellation = new CancellationTokenSource();
         var work = new Work();
-        var service = new ImportCadFolderService(new Reader(new([], []), cancellation.Cancel), new CadDomainMapper(), work);
+        var service = new ImportCadFolderService(new Reader(new([], []), cancellation.Cancel), new CadDomainMapper(), new SingleWorkFactory(work));
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => service.ExecuteAsync("папка", cancellation.Token));
         Assert.Equal(0, work.Begins);
     }
@@ -279,6 +279,11 @@ public sealed class ImportCadFolderServiceTests
             onRead?.Invoke();
             return Task.FromResult(result);
         }
+    }
+
+    private sealed class SingleWorkFactory(IUnitOfWork work) : IUnitOfWorkFactory
+    {
+        public IUnitOfWork CreateUnitOfWork() => work;
     }
 
     private sealed class Work(params PDMObject[] initial) : IUnitOfWork, IPdmObjectRepository
