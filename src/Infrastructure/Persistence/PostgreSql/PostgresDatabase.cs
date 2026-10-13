@@ -4,7 +4,7 @@ using Npgsql;
 
 namespace Infrastructure.Persistence.PostgreSql;
 
-public sealed class PostgresDatabase : IAsyncDisposable
+public sealed class PostgresDatabase : IUnitOfWorkFactory, IAsyncDisposable
 {
     private readonly NpgsqlDataSource _dataSource;
     private readonly DbContextOptions<PdmDbContext> _options;
