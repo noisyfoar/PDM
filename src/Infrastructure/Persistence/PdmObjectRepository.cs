@@ -33,10 +33,8 @@ internal sealed class PdmObjectRepository : IPdmObjectRepository
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         _unitOfWork.RequireTransaction();
-        var objects = await Query()
-            .Where(x => x.ObjectType == ObjectType.StandardPart)
-            .ToListAsync(ct);
-        return objects.SingleOrDefault(x => x.Name == name);
+        return await Query().SingleOrDefaultAsync(x => x.ObjectType == ObjectType.StandardPart
+            && EF.Property<string?>(x, "StandardName") == name, ct);
     }
 
     public async Task<IReadOnlyList<PDMObject>> SearchAsync(

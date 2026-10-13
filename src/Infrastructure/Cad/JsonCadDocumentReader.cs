@@ -14,11 +14,12 @@ public sealed class JsonCadDocumentReader : ICadDocumentReader
         using var json = await JsonDocument.ParseAsync(stream, new JsonDocumentOptions(), ct); //ToDo: сделать new JsonSerializerOptions() в статику, чтобы не создавать каждый раз
         var root = json.RootElement;
 
-        var type = root.GetProperty("type").GetString().ToDocument();
+        var type = (root.GetProperty("type").GetString()
+            ?? throw new JsonException("Тип документа не указан.")).ToDocument();
 
         var properties = root.TryGetProperty("properties", out var p) ? p : default;
         decimal? mass = null;
-        if (properties.TryGetProperty("mass", out var massElement) &&
+        if (properties.ValueKind == JsonValueKind.Object && properties.TryGetProperty("mass", out var massElement) &&
             massElement.ValueKind != JsonValueKind.Null &&
             massElement.ValueKind != JsonValueKind.Undefined)
         {
@@ -26,7 +27,7 @@ public sealed class JsonCadDocumentReader : ICadDocumentReader
         }
 
         string? material = null;
-        if (properties.TryGetProperty("material", out var materialElement))
+        if (properties.ValueKind == JsonValueKind.Object && properties.TryGetProperty("material", out var materialElement))
             material = materialElement.GetString();
 
         var components = new List<CadComponent>();
@@ -39,7 +40,7 @@ public sealed class JsonCadDocumentReader : ICadDocumentReader
         return new CadDocument
             (
                 root.GetProperty("formatVersion").GetInt32(),
-                root.GetProperty("fileName").GetString()!,
+                Path.GetFileName(path),
                 type,
                 root.TryGetProperty("designation", out var designation) && designation.ValueKind != JsonValueKind.Null ? designation.GetString() : null,
                 root.GetProperty("name").GetString()!,

@@ -5,5 +5,6 @@ namespace Application.Interfaces.Services;
 
 public interface ICadDomainMapper
 {
-    IReadOnlyList<PDMObject> Map(IReadOnlyList<CadDocument> documents);
+    // Создаёт объект с атрибутами. Состав связывает сервис импорта.
+    PDMObject Map(CadDocument document);
 }

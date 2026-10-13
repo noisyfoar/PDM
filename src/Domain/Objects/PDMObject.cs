@@ -54,13 +54,8 @@ public sealed class PDMObject
 
     public ObjectVersion CreateNewVersion()
     {
-        if (CurrentVersion?.VersionType == ObjectVersionType.InWork)
-            throw new PDMException("Версия в состоянии «В работе» уже существует.");
-
-        var latest = _versions.MaxBy(version => version.VersionNumber)!; // последняя версия объекта
-        if (latest.VersionNumber == int.MaxValue)
-            throw new PDMException("Достигнут предел номера версии.");
-
+        EnsureCanCreateNewVersion();
+        var latest = _versions.MaxBy(version => version.VersionNumber)!;
         var source = CurrentVersion ?? latest;
 
         var version = new ObjectVersion(
@@ -69,10 +64,20 @@ public sealed class PDMObject
             source.Name,
             source.Material,
             source.MassKg,
-            [.. source.Components.Select(component => new Component(component.ChildObject, component.Quantity))]); // создаем новую версию объекта с теми же компонентами, что и у исходной версии
+            [.. source.Components.Select(component => new Component(component.ChildObject, component.Quantity))]);
 
         _versions.Add(version);
-
         return version;
+    }
+
+    // Позволяет проверить импорт до изменения отслеживаемых сущностей.
+    public void EnsureCanCreateNewVersion()
+    {
+        if (CurrentVersion?.VersionType == ObjectVersionType.InWork)
+            throw new PDMException("Версия в состоянии «В работе» уже существует.");
+
+        var latest = _versions.MaxBy(version => version.VersionNumber)!; // последняя версия объекта
+        if (latest.VersionNumber == int.MaxValue)
+            throw new PDMException("Достигнут предел номера версии.");
     }
 }
