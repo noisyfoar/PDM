@@ -33,7 +33,7 @@ public sealed class ImportCadFolderService : IImportCadFolderService
         var warnings = new List<ImportWarning>();
         var rejected = new Dictionary<string, string>(FileNames);
         foreach (var error in readResult.Errors)
-            rejected.TryAdd(Path.GetFileName(error.Path), error.Message);
+            rejected.TryAdd(error.FileName, error.Message);
         RejectDuplicates(readResult.Documents, rejected);
 
         var items = new Dictionary<string, ImportItem>(FileNames);

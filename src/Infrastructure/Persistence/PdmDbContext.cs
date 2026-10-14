@@ -54,7 +54,7 @@ public sealed class PdmDbContext : DbContext
         versions.Property(x => x.Id).ValueGeneratedNever();
         versions.Property(x => x.VersionType).HasConversion<string>().IsRequired();
         versions.Property(x => x.VersionNumber).IsRequired();
-        versions.Property(x => x.Name).IsRequired().HasMaxLength(500);
+        versions.Property(x => x.Name).IsRequired().HasColumnType("text");
         versions.Property(x => x.MassKg).HasColumnType("numeric");
         versions.Property(x => x.CreatedAt).IsRequired();
         versions.HasIndex("ObjectId", nameof(ObjectVersion.VersionNumber)).IsUnique();

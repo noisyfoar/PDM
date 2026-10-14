@@ -39,7 +39,12 @@ public sealed class CadFolderDocumentReader : ICadFolderDocumentReader
             }
             catch (Exception ex)
             {
-                errors.Add(new CadReadError(path, ex.Message));
+                var message = ex is JsonException json
+                    ? json.LineNumber is { } line && json.BytePositionInLine is { } position
+                        ? $"Некорректный JSON-документ (строка {line + 1}, позиция {position + 1})."
+                        : "Некорректный JSON-документ."
+                    : ex.Message;
+                errors.Add(new CadReadError(Path.GetFileName(path), message));
             }
         }
         ct.ThrowIfCancellationRequested();
