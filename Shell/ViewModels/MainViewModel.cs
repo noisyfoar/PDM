@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using Application.Interfaces.Persistence;
 using Application.Interfaces.Services;
 using Application.Records.Objects;
+using Application.Records.Calculations;
 using Contracts.CAD.Records;
 using Domain.Objects;
 using Domain.Versions;
@@ -18,6 +19,9 @@ public sealed class MainViewModel : ObservableObject
     private readonly IFolderPicker _folderPicker;
     private readonly ICompositionReader _compositionReader;
     private readonly IImportReportPresenter _reportPresenter;
+    private readonly IAssemblyCalculationService _calculationService;
+    private AssemblyCalculationResult? _calculation;
+    private int _selectedCardTab;
     private readonly List<PdmObjectSummary> _objects = [];
     private readonly Dictionary<Guid, ObjectTreeNodeViewModel> _rootNodes = [];
     private ObjectTreeNodeViewModel? _selectedTreeNode;
@@ -41,6 +45,30 @@ public sealed class MainViewModel : ObservableObject
     public AsyncCommand AnnulCommand { get; }
     public AsyncCommand ImportCommand { get; }
     public AsyncCommand ShowImportReportCommand { get; }
+    public AsyncCommand CalculateCommand { get; }
+
+    public AssemblyCalculationResult? Calculation
+    {
+        get => _calculation;
+        private set
+        {
+            if (!SetProperty(ref _calculation, value)) return;
+            OnPropertyChanged(nameof(CalculationDescription));
+        }
+    }
+
+    public string CalculationDescription => Calculation is null
+        ? "Расчёт ещё не выполнен или данные обновились."
+        : Calculation.MassKg is { } mass
+            ? $"Масса сборки: {mass} кг. Позиций: {Calculation.Specification.Count}."
+            : "Полную массу рассчитать нельзя. Проверьте сообщения ниже.";
+
+    public bool IsAssemblyCard => Card?.ObjectType == ObjectType.Assembly;
+    public int SelectedCardTab
+    {
+        get => _selectedCardTab;
+        set => SetProperty(ref _selectedCardTab, value);
+    }
 
     public string? ImportFolder { get => _importFolder; private set => SetProperty(ref _importFolder, value); }
     public ImportCadFolderReport? ImportReport
@@ -78,6 +106,7 @@ public sealed class MainViewModel : ObservableObject
             // При обновлении строки результата карточка того же объекта остаётся открытой.
             if (Card?.Id != value?.Id)
             {
+                Calculation = null;
                 Card = null;
                 SelectedVersion = null;
             }
@@ -105,7 +134,9 @@ public sealed class MainViewModel : ObservableObject
         private set
         {
             if (!SetProperty(ref _card, value)) return;
+            if (!IsAssemblyCard) SelectedCardTab = 0;
             OnPropertyChanged(nameof(HasCard));
+            OnPropertyChanged(nameof(IsAssemblyCard));
             OnPropertyChanged(nameof(CurrentVersionDescription));
             NotifyCommands();
         }
@@ -142,13 +173,15 @@ public sealed class MainViewModel : ObservableObject
     public string StatusMessage { get => _statusMessage; private set => SetProperty(ref _statusMessage, value); }
 
     public MainViewModel(IPdmObjectService objectService, IImportCadFolderService importService,
-        IFolderPicker folderPicker, ICompositionReader compositionReader, IImportReportPresenter reportPresenter)
+        IFolderPicker folderPicker, ICompositionReader compositionReader, IImportReportPresenter reportPresenter,
+        IAssemblyCalculationService calculationService)
     {
         _objectService = objectService ?? throw new ArgumentNullException(nameof(objectService));
         _importService = importService ?? throw new ArgumentNullException(nameof(importService));
         _folderPicker = folderPicker ?? throw new ArgumentNullException(nameof(folderPicker));
         _compositionReader = compositionReader ?? throw new ArgumentNullException(nameof(compositionReader));
         _reportPresenter = reportPresenter ?? throw new ArgumentNullException(nameof(reportPresenter));
+        _calculationService = calculationService ?? throw new ArgumentNullException(nameof(calculationService));
         SearchCommand = new AsyncCommand(SearchAsync, () => IsIdle);
         OpenObjectCommand = new AsyncCommand(OpenObjectAsync, () => IsIdle && SelectedObject is not null);
         ApproveCommand = new AsyncCommand(() => ChangeStateAsync(approve: true),
@@ -157,6 +190,8 @@ public sealed class MainViewModel : ObservableObject
             () => CanChangeState && SelectedVersion?.VersionType is ObjectVersionType.InWork or ObjectVersionType.Approved);
         ImportCommand = new AsyncCommand(ImportAsync, () => IsIdle);
         ShowImportReportCommand = new AsyncCommand(ShowImportReportAsync, () => IsIdle && _lastReportViewModel is not null);
+        CalculateCommand = new AsyncCommand(CalculateAsync,
+            () => IsIdle && IsAssemblyCard && Card?.CurrentVersion is not null);
     }
 
     // Это доступность кнопок. Правила переходов повторно проверяются Domain при сохранении.
@@ -167,8 +202,7 @@ public sealed class MainViewModel : ObservableObject
 
     private Task SearchAsync() => RunAsync(async () =>
     {
-        var objects = await _objectService.SearchAsync(string.Empty);
-        await ReplaceObjectsAsync(objects);
+        await RefreshObjectsAsync();
         ApplyFilter();
     }, "Загрузка объектов…");
 
@@ -258,7 +292,7 @@ public sealed class MainViewModel : ObservableObject
 
         if (ImportReport.Accepted.Count > 0)
         {
-            try { await RefreshAfterImportAsync(); }
+            try { await RefreshObjectsAsync(); }
             catch (Exception error)
             {
                 // Импорт уже сохранён. Ошибка чтения не отменяет его результат.
@@ -299,12 +333,16 @@ public sealed class MainViewModel : ObservableObject
         }
     }
 
-    private async Task RefreshAfterImportAsync()
+    private async Task RefreshObjectsAsync()
     {
         var selectedId = SelectedObject?.Id;
         var cardId = Card?.Id;
         var versionId = SelectedVersion?.Id;
+        Calculation = null;
         var objects = await _objectService.SearchAsync(string.Empty);
+        // Если перечитывание завершится ошибкой, устаревшая карточка не останется на экране.
+        Card = null;
+        SelectedVersion = null;
         await ReplaceObjectsAsync(objects);
         var card = SelectedObject?.Id == selectedId && selectedId == cardId && selectedId is { } id
             ? await _objectService.GetAsync(id) : null;
@@ -313,9 +351,26 @@ public sealed class MainViewModel : ObservableObject
 
     private void ApplyCard(PdmObjectDetails card, Guid? selectedVersionId = null)
     {
+        Calculation = null;
         Card = card;
         SelectedVersion = card.Versions.FirstOrDefault(version => version.Id == selectedVersionId)
             ?? card.CurrentVersion ?? card.Versions.FirstOrDefault();
+    }
+
+    private Task CalculateAsync()
+    {
+        var objectId = Card!.Id;
+        var versionId = Card.CurrentVersion!.Id;
+        return RunAsync(async () =>
+        {
+            Calculation = null;
+            var result = await _calculationService.CalculateAsync(objectId);
+            if (result.AssemblyId != objectId)
+                throw new InvalidOperationException("Сервис вернул расчёт другой сборки.");
+            if (Card?.Id != objectId || Card.CurrentVersion?.Id != versionId) return;
+            Calculation = result;
+            StatusMessage = result.IsSuccessful ? "Расчёт завершён." : "Расчёт завершён с замечаниями.";
+        }, "Расчёт массы и спецификации…", "Не удалось выполнить расчёт сборки.");
     }
 
     private async Task UpdateResultAsync(PdmObjectDetails card)
@@ -419,5 +474,6 @@ public sealed class MainViewModel : ObservableObject
         AnnulCommand.NotifyCanExecuteChanged();
         ImportCommand.NotifyCanExecuteChanged();
         ShowImportReportCommand.NotifyCanExecuteChanged();
+        CalculateCommand.NotifyCanExecuteChanged();
     }
 }

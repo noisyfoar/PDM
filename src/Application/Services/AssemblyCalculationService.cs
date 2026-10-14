@@ -15,6 +15,7 @@ public sealed class AssemblyCalculationService(ICompositionReader reader) : IAss
         ct.ThrowIfCancellationRequested();
         // Масса и спецификация рассчитываются по одному снимку, без запросов на каждый узел.
         var entries = await _reader.GetAsync(assemblyId, ct);
+        ct.ThrowIfCancellationRequested();
         var root = entries.SingleOrDefault(entry => entry.Depth == 0);
         var issues = new List<CalculationIssue>();
         if (root is null)

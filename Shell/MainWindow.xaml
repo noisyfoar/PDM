@@ -147,9 +147,9 @@
                         </Style>
                     </TextBlock.Style>
                 </TextBlock>
-                <Grid>
-                    <Grid.Style>
-                        <Style TargetType="Grid">
+                <TabControl SelectedIndex="{Binding SelectedCardTab, Mode=TwoWay}">
+                    <TabControl.Style>
+                        <Style TargetType="TabControl">
                             <Setter Property="Visibility" Value="Collapsed" />
                             <Style.Triggers>
                                 <DataTrigger Binding="{Binding HasCard}" Value="True">
@@ -157,7 +157,10 @@
                                 </DataTrigger>
                             </Style.Triggers>
                         </Style>
-                    </Grid.Style>
+                    </TabControl.Style>
+                    <TabItem Header="Карточка">
+                    <ScrollViewer x:Name="CardScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                    <Grid Margin="10">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="*" MinHeight="120" />
@@ -174,12 +177,12 @@
                         <TextBlock Text="История версий — выберите версию для просмотра и смены состояния" TextWrapping="Wrap" />
                     </StackPanel>
 
-                    <DataGrid Grid.Row="1" ItemsSource="{Binding Card.Versions}" IsEnabled="{Binding IsIdle}"
+                    <DataGrid Grid.Row="1" ItemsSource="{Binding Card.Versions}" IsEnabled="{Binding IsIdle}" MaxHeight="220"
                               SelectedItem="{Binding SelectedVersion, Mode=TwoWay}">
                         <DataGrid.Columns>
-                            <DataGridTextColumn Header="Версия" Width="65" Binding="{Binding VersionNumber}" />
-                            <DataGridTextColumn Header="Состояние" Width="110" Binding="{Binding VersionType, Converter={StaticResource EnumDisplay}}" />
-                            <DataGridTextColumn Header="Создана" Width="145" Binding="{Binding CreatedAt, StringFormat={}{0:dd.MM.yyyy HH:mm}}" />
+                            <DataGridTextColumn Header="Версия" Width="65" MinWidth="65" Binding="{Binding VersionNumber}" />
+                            <DataGridTextColumn Header="Состояние" Width="110" MinWidth="110" Binding="{Binding VersionType, Converter={StaticResource EnumDisplay}}" />
+                            <DataGridTextColumn Header="Создана" Width="145" MinWidth="145" Binding="{Binding CreatedAt, StringFormat={}{0:dd.MM.yyyy HH:mm}}" />
                             <DataGridTextColumn Header="Наименование" Width="*" MinWidth="130" Binding="{Binding Name}" />
                         </DataGrid.Columns>
                     </DataGrid>
@@ -209,7 +212,47 @@
                         <Button Content="Утвердить версию" Command="{Binding ApproveCommand}" />
                         <Button Content="Аннулировать версию" Command="{Binding AnnulCommand}" Margin="0" />
                     </StackPanel>
-                </Grid>
+                    </Grid>
+                    </ScrollViewer>
+                    </TabItem>
+                    <TabItem Header="Масса и спецификация" IsEnabled="{Binding IsAssemblyCard}">
+                        <Grid Margin="10">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+                            <StackPanel>
+                                <TextBlock Text="{Binding Card.Name}" FontSize="18" FontWeight="SemiBold" TextWrapping="Wrap" />
+                                <TextBlock Text="Расчёт по текущим версиям сборки и её компонентов. Выбор версии в истории не влияет на расчёт."
+                                           TextWrapping="Wrap" Foreground="#666666" Margin="0,8" />
+                                <Button Content="Рассчитать" Command="{Binding CalculateCommand}" HorizontalAlignment="Left" />
+                            </StackPanel>
+                            <TextBlock Grid.Row="1" Text="{Binding CalculationDescription}" TextWrapping="Wrap" FontWeight="SemiBold" Margin="0,12" />
+                            <DataGrid Grid.Row="2" ItemsSource="{Binding Calculation.Specification}" HorizontalScrollBarVisibility="Auto">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="Обозначение" Width="145" MinWidth="145" Binding="{Binding Designation, TargetNullValue=—}" />
+                                    <DataGridTextColumn Header="Наименование" Width="*" MinWidth="160" Binding="{Binding Name}" />
+                                    <DataGridTextColumn Header="Тип" Width="125" MinWidth="125" Binding="{Binding ObjectType, Converter={StaticResource EnumDisplay}}" />
+                                    <DataGridTextColumn Header="Материал" Width="100" MinWidth="100" Binding="{Binding Material, TargetNullValue=—}" />
+                                    <DataGridTextColumn Header="Количество" Width="95" MinWidth="95" Binding="{Binding Quantity}" />
+                                    <DataGridTextColumn Header="Масса ед., кг" Width="110" MinWidth="110" Binding="{Binding UnitMassKg, TargetNullValue=—}" />
+                                    <DataGridTextColumn Header="Масса всего, кг" Width="120" MinWidth="120" Binding="{Binding TotalMassKg, TargetNullValue=—}" />
+                                </DataGrid.Columns>
+                            </DataGrid>
+                            <ScrollViewer Grid.Row="3" MaxHeight="150" VerticalScrollBarVisibility="Auto" Margin="0,12,0,0">
+                                <ItemsControl ItemsSource="{Binding Calculation.Issues}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding Message}" Foreground="#B45309" TextWrapping="Wrap" Margin="0,0,0,6" />
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+                        </Grid>
+                    </TabItem>
+                </TabControl>
             </Grid>
         </Grid>
 

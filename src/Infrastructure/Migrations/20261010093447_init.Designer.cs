@@ -13,7 +13,7 @@ namespace Infrastructure.Migrations
 {
     [DbContext(typeof(PdmDbContext))]
     [Migration("20261010093447_init")]
-    partial class init
+    partial class Init
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
