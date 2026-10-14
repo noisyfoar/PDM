@@ -17,4 +17,5 @@ public sealed record CompositionEntry(
     decimal? TotalQuantity,
     int Depth,
     IReadOnlyList<Guid> Path,
-    bool IsCycle);
+    bool IsCycle,
+    int? CurrentVersionNumber = null);

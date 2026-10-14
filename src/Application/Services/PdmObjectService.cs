@@ -21,8 +21,6 @@ public sealed class PdmObjectService : IPdmObjectService
         ArgumentNullException.ThrowIfNull(searchText);
         ct.ThrowIfCancellationRequested();
         var query = searchText.Trim();
-        if (query.Length == 0) return Task.FromResult<IReadOnlyList<PdmObjectSummary>>([]);
-
         return ExecuteAsync<IReadOnlyList<PdmObjectSummary>>(async (work, token) =>
         {
             var objects = await work.Objects.SearchAsync(query, token);

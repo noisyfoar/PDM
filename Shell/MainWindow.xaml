@@ -1,12 +1,233 @@
-﻿<Window x:Class="Shell.MainWindow"
+<Window x:Class="Shell.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        xmlns:local="clr-namespace:Shell"
-        mc:Ignorable="d"
-        Title="{Binding Title}" Height="450" Width="800">
-    <Grid>
+        xmlns:converters="clr-namespace:Shell.Converters"
+        xmlns:viewModels="clr-namespace:Shell.ViewModels"
+        Title="{Binding Title}" Height="760" Width="1180"
+        MinHeight="640" MinWidth="1000" Language="ru-RU">
+    <Window.Resources>
+        <converters:EnumDisplayConverter x:Key="EnumDisplay" />
+        <Style TargetType="Button">
+            <Setter Property="Padding" Value="14,7" />
+            <Setter Property="Margin" Value="0,0,8,0" />
+        </Style>
+        <Style TargetType="DataGrid">
+            <Setter Property="AutoGenerateColumns" Value="False" />
+            <Setter Property="IsReadOnly" Value="True" />
+            <Setter Property="CanUserAddRows" Value="False" />
+            <Setter Property="CanUserDeleteRows" Value="False" />
+            <Setter Property="SelectionMode" Value="Single" />
+            <Setter Property="SelectionUnit" Value="FullRow" />
+            <Setter Property="HeadersVisibility" Value="Column" />
+            <Setter Property="MinRowHeight" Value="30" />
+        </Style>
+        <Style x:Key="AttributeLabel" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="#666666" />
+            <Setter Property="Margin" Value="0,0,12,8" />
+        </Style>
+        <Style x:Key="AttributeValue" TargetType="TextBlock">
+            <Setter Property="TextWrapping" Value="Wrap" />
+            <Setter Property="Margin" Value="0,0,0,8" />
+        </Style>
+        <Style TargetType="TreeViewItem">
+            <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}" />
+            <Setter Property="IsSelected" Value="{Binding IsSelected, Mode=TwoWay}" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsPlaceholder}" Value="True">
+                    <Setter Property="IsEnabled" Value="False" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+        <HierarchicalDataTemplate DataType="{x:Type viewModels:ObjectTreeNodeViewModel}" ItemsSource="{Binding Children}">
+            <StackPanel Margin="2,4">
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="{Binding Object.Name}" FontWeight="SemiBold" />
+                    <TextBlock Text="{Binding QuantityText}" Margin="8,0,0,0" FontWeight="SemiBold" />
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Margin="0,3,0,0">
+                    <StackPanel.Style>
+                        <Style TargetType="StackPanel">
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsPlaceholder}" Value="True">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </StackPanel.Style>
+                    <TextBlock Text="{Binding Object.Designation, TargetNullValue=Без обозначения}" Foreground="#666666" />
+                    <TextBlock Text=" · " />
+                    <TextBlock Text="{Binding Object.ObjectType, Converter={StaticResource EnumDisplay}}" Foreground="#666666" />
+                    <TextBlock Text=" · " />
+                    <TextBlock Text="{Binding VersionDescription}" Foreground="#666666" />
+                    <TextBlock Text=" · " />
+                    <TextBlock Text="{Binding Object.CurrentVersionType, Converter={StaticResource EnumDisplay}}" Foreground="#666666" />
+                </StackPanel>
+                <TextBlock Text="{Binding Diagnostic}" Foreground="#B45309" TextWrapping="Wrap" MaxWidth="420" Margin="0,4,0,0">
+                    <TextBlock.Style>
+                        <Style TargetType="TextBlock">
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding Diagnostic}" Value="{x:Null}">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBlock.Style>
+                </TextBlock>
+            </StackPanel>
+        </HierarchicalDataTemplate>
+    </Window.Resources>
 
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <Grid Margin="0,0,0,18">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <StackPanel>
+                <TextBlock Text="Поиск по наименованию или обозначению — список обновляется при вводе" TextWrapping="Wrap" Margin="0,0,0,6" />
+                <TextBox Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
+                         IsEnabled="{Binding IsIdle}" Padding="8" FontSize="14">
+                    <TextBox.InputBindings>
+                        <KeyBinding Key="Enter" Command="{Binding SearchCommand}" />
+                    </TextBox.InputBindings>
+                </TextBox>
+            </StackPanel>
+            <Button Grid.Column="1" Content="Обновить" Command="{Binding SearchCommand}"
+                    VerticalAlignment="Bottom" Margin="12,0,0,0" />
+            <Button Grid.Column="2" Content="Импортировать папку…" Command="{Binding ImportCommand}"
+                    VerticalAlignment="Bottom" Margin="12,0,0,0" />
+            <Button Grid.Column="3" Content="Отчёт импорта" Command="{Binding ShowImportReportCommand}"
+                    VerticalAlignment="Bottom" Margin="12,0,0,0" />
+        </Grid>
+
+        <Grid Grid.Row="1" Margin="10">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" MinWidth="390" />
+                <ColumnDefinition Width="20" />
+                <ColumnDefinition Width="*" MinWidth="440" />
+            </Grid.ColumnDefinitions>
+
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+                <TextBlock Text="Дерево объектов" FontSize="20" FontWeight="SemiBold" Margin="0,0,0,12" />
+                <TreeView Grid.Row="1" ItemsSource="{Binding TreeRoots}" IsEnabled="{Binding IsIdle}">
+                    <TreeView.InputBindings>
+                        <MouseBinding MouseAction="LeftDoubleClick" Command="{Binding OpenObjectCommand}" />
+                        <KeyBinding Key="Enter" Command="{Binding OpenObjectCommand}" />
+                    </TreeView.InputBindings>
+                </TreeView>
+                <Button Grid.Row="2" Content="Открыть карточку" Command="{Binding OpenObjectCommand}"
+                        HorizontalAlignment="Left" Margin="0,12,0,0" />
+            </Grid>
+
+            <Grid Grid.Column="2">
+                <TextBlock Text="Выберите объект и откройте его карточку."
+                           Foreground="#666666" TextWrapping="Wrap" VerticalAlignment="Center" HorizontalAlignment="Center">
+                    <TextBlock.Style>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="Visibility" Value="Visible" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding HasCard}" Value="True">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBlock.Style>
+                </TextBlock>
+                <Grid>
+                    <Grid.Style>
+                        <Style TargetType="Grid">
+                            <Setter Property="Visibility" Value="Collapsed" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding HasCard}" Value="True">
+                                    <Setter Property="Visibility" Value="Visible" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Grid.Style>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" MinHeight="120" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <StackPanel Margin="0,0,0,12">
+                        <TextBlock Text="Карточка объекта" FontSize="20" FontWeight="SemiBold" Margin="0,0,0,12" />
+                        <TextBlock Text="{Binding Card.Name}" TextWrapping="Wrap" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,6" />
+                        <TextBlock Text="{Binding Card.Designation, TargetNullValue=Без обозначения}" Margin="0,0,0,6" />
+                        <TextBlock Text="{Binding Card.ObjectType, Converter={StaticResource EnumDisplay}}" Margin="0,0,0,6" />
+                        <TextBlock Text="{Binding CurrentVersionDescription}" FontWeight="SemiBold" Margin="0,0,0,12" />
+                        <TextBlock Text="История версий — выберите версию для просмотра и смены состояния" TextWrapping="Wrap" />
+                    </StackPanel>
+
+                    <DataGrid Grid.Row="1" ItemsSource="{Binding Card.Versions}" IsEnabled="{Binding IsIdle}"
+                              SelectedItem="{Binding SelectedVersion, Mode=TwoWay}">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Версия" Width="65" Binding="{Binding VersionNumber}" />
+                            <DataGridTextColumn Header="Состояние" Width="110" Binding="{Binding VersionType, Converter={StaticResource EnumDisplay}}" />
+                            <DataGridTextColumn Header="Создана" Width="145" Binding="{Binding CreatedAt, StringFormat={}{0:dd.MM.yyyy HH:mm}}" />
+                            <DataGridTextColumn Header="Наименование" Width="*" MinWidth="130" Binding="{Binding Name}" />
+                        </DataGrid.Columns>
+                    </DataGrid>
+
+                    <Grid Grid.Row="2" Margin="0,16,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+                        <TextBlock Text="Наименование версии" Style="{StaticResource AttributeLabel}" />
+                        <TextBlock Grid.Column="1" Text="{Binding SelectedVersion.Name, TargetNullValue=—}" Style="{StaticResource AttributeValue}" />
+                        <TextBlock Grid.Row="1" Text="Состояние" Style="{StaticResource AttributeLabel}" />
+                        <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding SelectedVersion.VersionType, Converter={StaticResource EnumDisplay}}" Style="{StaticResource AttributeValue}" />
+                        <TextBlock Grid.Row="2" Text="Материал" Style="{StaticResource AttributeLabel}" />
+                        <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding SelectedVersion.Material, TargetNullValue=—}" Style="{StaticResource AttributeValue}" />
+                        <TextBlock Grid.Row="3" Text="Масса, кг" Style="{StaticResource AttributeLabel}" />
+                        <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding SelectedVersion.MassKg, TargetNullValue=—}" Style="{StaticResource AttributeValue}" />
+                    </Grid>
+
+                    <StackPanel Grid.Row="3" Orientation="Horizontal" Margin="0,8,0,0">
+                        <Button Content="Утвердить версию" Command="{Binding ApproveCommand}" />
+                        <Button Content="Аннулировать версию" Command="{Binding AnnulCommand}" Margin="0" />
+                    </StackPanel>
+                </Grid>
+            </Grid>
+        </Grid>
+
+        <StackPanel Grid.Row="2" Margin="0,18,0,0">
+            <ProgressBar IsIndeterminate="True" Height="3" Margin="0,0,0,8">
+                <ProgressBar.Style>
+                    <Style TargetType="ProgressBar">
+                        <Setter Property="Visibility" Value="Collapsed" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding IsBusy}" Value="True">
+                                <Setter Property="Visibility" Value="Visible" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </ProgressBar.Style>
+            </ProgressBar>
+            <TextBlock Text="{Binding StatusMessage}" TextWrapping="Wrap" />
+            <TextBlock Text="{Binding ErrorMessage}" Foreground="#B42318" TextWrapping="Wrap" Margin="0,4,0,0" />
+        </StackPanel>
     </Grid>
 </Window>

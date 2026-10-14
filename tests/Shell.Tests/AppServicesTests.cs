@@ -4,6 +4,7 @@ using Contracts.CAD.Interfaces;
 using Infrastructure.Persistence.PostgreSql;
 using Shell.Composition;
 using Shell.Configuration;
+using Shell.Interfaces;
 using Shell.ViewModels;
 using Xunit;
 
@@ -42,6 +43,8 @@ public sealed class AppServicesTests
         Assert.Same(provider.GetService<ICadDocumentReader>(), provider.GetService<ICadDocumentReader>());
         Assert.Same(provider.GetService<ICadFolderDocumentReader>(), provider.GetService<ICadFolderDocumentReader>());
         Assert.Same(provider.GetService<ICadDomainMapper>(), provider.GetService<ICadDomainMapper>());
+        Assert.Same(provider.GetService<IFolderPicker>(), provider.GetService<IFolderPicker>());
+        Assert.Same(provider.GetService<IImportReportPresenter>(), provider.GetService<IImportReportPresenter>());
         Assert.Same(provider.Settings, provider.GetService<AppSettings>());
     }
 

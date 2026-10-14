@@ -20,7 +20,7 @@ public sealed class PostgresCompositionReader(DbContextOptions<PdmDbContext> opt
             Enum.Parse<ObjectType>(row.ObjectType), row.Designation, row.Name,
             row.VersionType is null ? null : Enum.Parse<ObjectVersionType>(row.VersionType),
             row.Material, row.MassKg, row.Quantity, row.TotalQuantity, row.Depth,
-            Array.AsReadOnly(row.Path), row.IsCycle)).ToList().AsReadOnly();
+            Array.AsReadOnly(row.Path), row.IsCycle, row.CurrentVersionNumber)).ToList().AsReadOnly();
     }
 
     // Единственный SQL-запрос. UNION ALL сохраняет повторные вхождения по разным путям.
@@ -53,7 +53,7 @@ public sealed class PostgresCompositionReader(DbContextOptions<PdmDbContext> opt
         )
         SELECT tree.*, o."ObjectType", o."Designation",
                COALESCE(v."Name", latest."Name", o."Id"::text) AS "Name",
-               v."VersionType", v."Material", v."MassKg"
+               v."VersionType", v."VersionNumber" AS "CurrentVersionNumber", v."Material", v."MassKg"
         FROM tree
         JOIN pdm_object o ON o."Id" = tree."ObjectId"
         LEFT JOIN current_versions v ON v."Id" = tree."CurrentVersionId"
@@ -73,6 +73,7 @@ public sealed class PostgresCompositionReader(DbContextOptions<PdmDbContext> opt
         public string? Designation { get; set; }
         public string Name { get; set; } = "";
         public string? VersionType { get; set; }
+        public int? CurrentVersionNumber { get; set; }
         public string? Material { get; set; }
         public decimal? MassKg { get; set; }
         public int Quantity { get; set; }

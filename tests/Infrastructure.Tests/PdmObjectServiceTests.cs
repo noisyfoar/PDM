@@ -17,12 +17,15 @@ public sealed class PdmObjectServiceTests
     [InlineData("")]
     [InlineData("   ")]
     [InlineData("\t\r\n")]
-    public async Task EmptySearchDoesNotCreateUnitOfWork(string query)
+    public async Task EmptySearchReturnsAllObjectsAndCompletesReadTransaction(string query)
     {
-        var factory = new Factory(Part());
+        var part = Part();
+        var standard = new PDMObject(ObjectType.StandardPart, null, "Болт", massKg: 0.1m);
+        var factory = new Factory(part, standard);
         var result = await new PdmObjectService(factory).SearchAsync(query);
-        Assert.Empty(result);
-        Assert.Empty(factory.Works);
+        Assert.Equal(new[] { part.Id, standard.Id }.Order(), result.Select(obj => obj.Id).Order());
+        Assert.Equal(string.Empty, factory.LastSearch);
+        AssertReadCompleted(Assert.Single(factory.Works));
     }
 
     [Theory]

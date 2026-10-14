@@ -41,7 +41,8 @@ internal sealed class PdmObjectRepository : IPdmObjectRepository
         string searchText,
         CancellationToken ct = default)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(searchText);
+        ArgumentNullException.ThrowIfNull(searchText);
+        searchText = searchText.Trim();
 
         _unitOfWork.RequireTransaction();
 

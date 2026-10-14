@@ -6,6 +6,8 @@ using Infrastructure.Cad;
 using Infrastructure.Persistence.PostgreSql;
 using Jab;
 using Shell.Configuration;
+using Shell.Interfaces;
+using Shell.Services;
 using Shell.ViewModels;
 
 namespace Shell.Composition;
@@ -21,6 +23,8 @@ namespace Shell.Composition;
 [Singleton(typeof(IPdmObjectService), typeof(PdmObjectService))]
 [Singleton(typeof(IImportCadFolderService), typeof(ImportCadFolderService))]
 [Singleton(typeof(IAssemblyCalculationService), typeof(AssemblyCalculationService))]
+[Singleton(typeof(IFolderPicker), typeof(FolderPicker))]
+[Singleton(typeof(IImportReportPresenter), typeof(ImportReportPresenter))]
 [Singleton(typeof(MainViewModel))]
 [Transient(typeof(MainWindow))]
 public partial class AppServices
@@ -36,7 +40,11 @@ public partial class AppServices
         Settings = settings ?? throw new ArgumentNullException(nameof(settings));
     }
 
-    public Task InitializeAsync(CancellationToken ct = default) => GetService<PostgresDatabase>().InitializeAsync(ct);
+    public async Task InitializeAsync(CancellationToken ct = default)
+    {
+        await GetService<PostgresDatabase>().InitializeAsync(ct);
+        await ViewModel.InitializeAsync();
+    }
 
     private PostgresDatabase CreateDatabase(AppSettings settings) => new(settings.ConnectionString);
     private ICompositionReader CreateCompositionReader(PostgresDatabase database) => database.CreateCompositionReader();
