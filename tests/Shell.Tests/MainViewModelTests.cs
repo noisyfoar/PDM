@@ -12,7 +12,7 @@ public sealed class MainViewModelTests
     [Fact]
     public void InitiallySearchAndImportAreAvailable()
     {
-        var vm = new MainViewModel(new FakeObjectService(), new FakeImportService(), new FakeFolderPicker(), new FakeCompositionReader(), new FakeImportReportPresenter());
+        var vm = new MainViewModel(new FakeObjectService(), new FakeImportService(), new FakeFolderPicker(), new FakeCompositionReader(), new FakeImportReportPresenter(), new FakeCalculationService());
         Assert.True(vm.SearchCommand.CanExecute(null));
         Assert.True(vm.ImportCommand.CanExecute(null));
         Assert.False(vm.OpenObjectCommand.CanExecute(null));
@@ -69,7 +69,7 @@ public sealed class MainViewModelTests
             Assert.Empty(query);
             return Task.FromResult<IReadOnlyList<PdmObjectSummary>>(objects);
         };
-        var vm = new MainViewModel(service, new FakeImportService(), new FakeFolderPicker(), new FakeCompositionReader(), new FakeImportReportPresenter());
+        var vm = new MainViewModel(service, new FakeImportService(), new FakeFolderPicker(), new FakeCompositionReader(), new FakeImportReportPresenter(), new FakeCalculationService());
         await vm.InitializeAsync();
         Assert.Equal(objects, vm.Results.ToArray());
         Assert.Equal("Всего объектов: 3.", vm.StatusMessage);
@@ -86,7 +86,7 @@ public sealed class MainViewModelTests
         var service = new FakeObjectService();
         var objects = SearchObjects(service.Card);
         service.Search = _ => Task.FromResult<IReadOnlyList<PdmObjectSummary>>(objects);
-        var vm = new MainViewModel(service, new FakeImportService(), new FakeFolderPicker(), new FakeCompositionReader(), new FakeImportReportPresenter());
+        var vm = new MainViewModel(service, new FakeImportService(), new FakeFolderPicker(), new FakeCompositionReader(), new FakeImportReportPresenter(), new FakeCalculationService());
         await vm.InitializeAsync();
 
         vm.SearchText = query;
@@ -121,7 +121,7 @@ public sealed class MainViewModelTests
         var objects = SearchObjects(service.Card);
         var pending = new TaskCompletionSource<IReadOnlyList<PdmObjectSummary>>(TaskCreationOptions.RunContinuationsAsynchronously);
         service.Search = _ => pending.Task;
-        var vm = new MainViewModel(service, new FakeImportService(), new FakeFolderPicker(), new FakeCompositionReader(), new FakeImportReportPresenter());
+        var vm = new MainViewModel(service, new FakeImportService(), new FakeFolderPicker(), new FakeCompositionReader(), new FakeImportReportPresenter(), new FakeCalculationService());
         var load = vm.InitializeAsync();
         vm.SearchText = "болт";
         pending.SetResult(objects);
@@ -379,9 +379,47 @@ public sealed class MainViewModelTests
         Assert.Same(vm.Results[0], vm.SelectedObject);
     }
 
+    [Fact]
+    public async Task RefreshRereadsOpenCardAndPreservesSelectedHistoricalVersion()
+    {
+        var service = new FakeObjectService();
+        var vm = await OpenAsync(service);
+        var original = vm.SelectedVersion!;
+        var current = Version(2, ObjectVersionType.InWork);
+        var updated = service.Card with { CurrentVersion = current, Versions = [current, original] };
+        service.Search = _ => Task.FromResult<IReadOnlyList<PdmObjectSummary>>([Summary(updated)]);
+        service.Get = _ => Task.FromResult(updated);
+
+        await vm.SearchCommand.ExecuteAsync();
+
+        Assert.Same(updated, vm.Card);
+        Assert.Equal(2, vm.Card!.CurrentVersion!.VersionNumber);
+        Assert.Equal(2, vm.Card.Versions.Count);
+        Assert.Same(original, vm.SelectedVersion);
+        Assert.Equal(2, vm.SelectedObject!.CurrentVersionNumber);
+        Assert.Equal(2, service.GetCalls);
+    }
+
+    [Fact]
+    public async Task RefreshFailureClearsStaleCardAndAllowsRetry()
+    {
+        var service = new FakeObjectService();
+        var vm = await OpenAsync(service);
+        service.Get = _ => Task.FromException<PdmObjectDetails>(new InvalidOperationException("Ошибка чтения карточки."));
+        await vm.SearchCommand.ExecuteAsync();
+        Assert.Null(vm.Card);
+        Assert.Null(vm.SelectedVersion);
+        Assert.Contains("Ошибка чтения карточки", vm.ErrorMessage);
+        Assert.True(vm.IsIdle);
+        service.Get = null;
+        await vm.OpenObjectCommand.ExecuteAsync();
+        Assert.NotNull(vm.Card);
+        Assert.Null(vm.ErrorMessage);
+    }
+
     private static async Task<MainViewModel> OpenAsync(FakeObjectService service)
     {
-        var vm = new MainViewModel(service, new FakeImportService(), new FakeFolderPicker(), new FakeCompositionReader(), new FakeImportReportPresenter()) { SearchText = "Деталь" };
+        var vm = new MainViewModel(service, new FakeImportService(), new FakeFolderPicker(), new FakeCompositionReader(), new FakeImportReportPresenter(), new FakeCalculationService()) { SearchText = "Деталь" };
         await vm.SearchCommand.ExecuteAsync();
         vm.SelectedObject = Assert.Single(vm.Results);
         await vm.OpenObjectCommand.ExecuteAsync();

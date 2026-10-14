@@ -1,11 +1,24 @@
 using Application.Interfaces.Services;
 using Application.Interfaces.Persistence;
 using Application.Records.Composition;
+using Application.Records.Calculations;
 using Contracts.CAD.Records;
 using Shell.Interfaces;
 using Shell.ViewModels;
 
 namespace Shell.Tests;
+
+internal sealed class FakeCalculationService : IAssemblyCalculationService
+{
+    public Func<Guid, Task<AssemblyCalculationResult>>? Calculate { get; set; }
+    public List<Guid> Calls { get; } = [];
+
+    public Task<AssemblyCalculationResult> CalculateAsync(Guid assemblyId, CancellationToken ct = default)
+    {
+        Calls.Add(assemblyId);
+        return Calculate?.Invoke(assemblyId) ?? Task.FromResult(new AssemblyCalculationResult(assemblyId, 0m, [], []));
+    }
+}
 
 internal sealed class FakeImportService : IImportCadFolderService
 {

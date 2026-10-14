@@ -5,14 +5,14 @@ using Xunit;
 namespace Infrastructure.Tests;
 
 [Collection("postgres")]
+[Trait("Category", "Postgres")]
 public sealed class PostgresRepositoryTests : IAsyncLifetime
 {
-    private readonly PostgresDatabase _database = new(
-        Environment.GetEnvironmentVariable("PDM_TEST_CONNECTION_STRING") ??
-        "Host=localhost;Port=55432;Database=pdm_migrate_test2;Username=admin;Password=admin");
+    private PostgresTestDatabase _test = null!;
+    private PostgresDatabase _database => _test.Database;
 
-    public async Task InitializeAsync() => await _database.InitializeAsync();
-    public async Task DisposeAsync() => await _database.DisposeAsync();
+    public async Task InitializeAsync() => _test = await PostgresTestDatabase.CreateAsync();
+    public async Task DisposeAsync() { if (_test is not null) await _test.DisposeAsync(); }
 
     [Fact]
     public async Task SaveAndLoad_PreservesObjectAndVersion()

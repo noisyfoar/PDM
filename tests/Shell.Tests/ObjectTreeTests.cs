@@ -251,7 +251,7 @@ public sealed class ObjectTreeTests
             Add(RightId, ObjectType.Assembly, "Подсборка 2", 3);
             Add(PartId, ObjectType.Part, "Деталь", 4);
             Reader.Read = _ => Task.FromResult(Entries());
-            ViewModel = new(Objects, Import, new FakeFolderPicker { Folder = "synthetic-folder" }, Reader, new FakeImportReportPresenter());
+            ViewModel = new(Objects, Import, new FakeFolderPicker { Folder = "synthetic-folder" }, Reader, new FakeImportReportPresenter(), new FakeCalculationService());
         }
 
         public IReadOnlyList<CompositionEntry> Entries() => [

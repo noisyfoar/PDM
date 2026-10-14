@@ -78,7 +78,7 @@ public sealed class ImportCadFolderServiceTests
         var work = new Work();
         var report = await Service(work, new CadFolderReadResult(
             [Assembly(components: [new("broken.m3d", 1)]), Part()],
-            [new CadReadError("папка/broken.m3d", "Некорректный документ.")])).ExecuteAsync("папка");
+            [new CadReadError("broken.m3d", "Некорректный документ.")])).ExecuteAsync("папка");
         Assert.Equal(2, report.Rejected.Count);
         Assert.Contains(report.Rejected, row => row.FileName == "root.a3d" && row.Reason.Contains("отклонён"));
         Assert.Single(report.Accepted);
@@ -171,6 +171,119 @@ public sealed class ImportCadFolderServiceTests
         Assert.Equal("Обновлённая деталь", source.CurrentVersion!.Name);
         Assert.Equal(ObjectVersionType.InWork, source.CurrentVersion.VersionType);
         if (state != ObjectVersionType.InWork) Assert.Equal("Деталь", old.Name);
+    }
+
+    [Theory]
+    [InlineData(ObjectVersionType.InWork)]
+    [InlineData(ObjectVersionType.Approved)]
+    [InlineData(ObjectVersionType.Annulled)]
+    public async Task StandardMassChangeUsesSameObjectAndCorrectVersionPolicy(ObjectVersionType state)
+    {
+        var document = Standard();
+        var source = new CadDomainMapper().Map(document);
+        var previous = source.CurrentVersion!;
+        if (state == ObjectVersionType.Approved) previous.Approve();
+        if (state == ObjectVersionType.Annulled) previous.Annul();
+        var work = new Work(source);
+
+        var report = await Import(work, document with { MassKg = 0.2m });
+
+        Assert.Empty(report.Rejected);
+        Assert.Same(source, Assert.Single(work.Saved.Values));
+        Assert.Equal(state == ObjectVersionType.InWork ? 1 : 2, source.CurrentVersion!.VersionNumber);
+        Assert.Equal(ObjectVersionType.InWork, source.CurrentVersion.VersionType);
+        Assert.Equal(0.2m, source.CurrentVersion.MassKg);
+        if (state == ObjectVersionType.InWork) Assert.Equal(previous.Id, source.CurrentVersion.Id);
+        else
+        {
+            Assert.NotEqual(previous.Id, source.CurrentVersion.Id);
+            Assert.Equal(0.1m, previous.MassKg);
+            Assert.Equal(state, previous.VersionType);
+        }
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ChildVersionChangeDoesNotCreateAssemblyVersionWhenLinksAreUnchanged(bool assemblyFirst)
+    {
+        var work = new Work();
+        var assembly = Assembly(components: [new("part.m3d", 2)]);
+        await Import(work, assembly, Part());
+        var parent = work.Saved.Values.Single(obj => obj.ObjectType == ObjectType.Assembly);
+        var child = work.Saved.Values.Single(obj => obj.ObjectType == ObjectType.Part);
+        var parentVersion = parent.CurrentVersion!;
+        var previousChildVersion = child.CurrentVersion!;
+        parentVersion.Approve();
+        previousChildVersion.Approve();
+        var changed = Part(mass: 3m);
+
+        var report = await Import(work, assemblyFirst ? [assembly, changed] : [changed, assembly]);
+
+        Assert.Empty(report.Rejected);
+        Assert.Equal("Пропущен: изменений нет.", report.Accepted.Single(row => row.FileName == assembly.FileName).Action);
+        Assert.Single(parent.Versions);
+        Assert.Same(parentVersion, parent.CurrentVersion);
+        Assert.Equal(ObjectVersionType.Approved, parentVersion.VersionType);
+        Assert.Equal(2, child.CurrentVersion!.VersionNumber);
+        Assert.Equal(2m, previousChildVersion.MassKg);
+        Assert.Equal(ObjectVersionType.Approved, previousChildVersion.VersionType);
+        Assert.Same(child, Assert.Single(parentVersion.Components).ChildObject);
+        Assert.Equal(3m, parentVersion.Components[0].ChildObject.CurrentVersion!.MassKg);
+        await Import(work, assembly, changed);
+        Assert.Equal(2, child.Versions.Count);
+        Assert.Single(parent.Versions);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ReimportAfterLatestAnnulmentComparesCurrentContentAndUsesMaximumVersionNumber(bool changed)
+    {
+        var source = new CadDomainMapper().Map(Part());
+        var first = source.CurrentVersion!;
+        first.Approve();
+        var second = source.CreateNewVersion();
+        second.Update("Архивная версия", "Сталь", 4m, []);
+        second.Annul();
+
+        var report = await Import(new Work(source), Part(mass: changed ? 3m : 2m));
+
+        Assert.Empty(report.Rejected);
+        Assert.Equal(changed ? 3 : 2, source.Versions.Count);
+        Assert.Equal(changed ? 3 : 1, source.CurrentVersion!.VersionNumber);
+        Assert.Equal(ObjectVersionType.Approved, first.VersionType);
+        Assert.Equal(ObjectVersionType.Annulled, second.VersionType);
+        Assert.Equal(4m, second.MassKg);
+        Assert.Equal(changed ? "Создана новая рабочая версия." : "Пропущен: изменений нет.", Assert.Single(report.Accepted).Action);
+    }
+
+    [Fact]
+    public async Task RenamingFileAloneDoesNotCreateObjectOrVersion()
+    {
+        var source = new CadDomainMapper().Map(Part());
+        var previous = source.CurrentVersion!;
+        previous.Approve();
+        var work = new Work(source);
+        var report = await Import(work, Part(file: "renamed.m3d"));
+        Assert.Same(source, Assert.Single(work.Saved.Values));
+        Assert.Same(previous, Assert.Single(source.Versions));
+        Assert.Equal("renamed.m3d", Assert.Single(report.Accepted).FileName);
+        Assert.Equal("Пропущен: изменений нет.", report.Accepted[0].Action);
+    }
+
+    [Fact]
+    public async Task ReimportWithAllVersionsAnnulledCreatesWorkingVersionEvenForSameContent()
+    {
+        var source = new CadDomainMapper().Map(Part());
+        var previous = source.CurrentVersion!;
+        previous.Annul();
+        var report = await Import(new Work(source), Part());
+        Assert.Empty(report.Rejected);
+        Assert.Equal(2, source.CurrentVersion!.VersionNumber);
+        Assert.Equal(ObjectVersionType.InWork, source.CurrentVersion.VersionType);
+        Assert.Equal(ObjectVersionType.Annulled, previous.VersionType);
+        Assert.Equal("Создана новая рабочая версия.", Assert.Single(report.Accepted).Action);
     }
 
     [Fact]

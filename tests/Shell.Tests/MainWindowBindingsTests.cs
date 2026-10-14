@@ -40,7 +40,7 @@ public sealed class MainWindowBindingsTests
                 var importer = new FakeImportService { Report = report };
                 var reader = new FakeCompositionReader { Read = _ => Task.FromResult(service.Composition()) };
                 var presenter = new FakeImportReportPresenter();
-                var vm = new MainViewModel(service, importer, new FakeFolderPicker { Folder = "synthetic-import-folder" }, reader, presenter) { SearchText = "Деталь" };
+                var vm = new MainViewModel(service, importer, new FakeFolderPicker { Folder = "synthetic-import-folder" }, reader, presenter, new Application.Services.AssemblyCalculationService(reader)) { SearchText = "Деталь" };
                 window = new MainWindow(vm);
                 var content = Assert.IsType<Grid>(window.Content);
                 Layout(content);
@@ -96,11 +96,41 @@ public sealed class MainWindowBindingsTests
                 Assert.False(component.IsPlaceholder);
                 Assert.Equal(2, component.Quantity);
                 Assert.Single(reader.Roots);
+                assemblyItem.IsSelected = true;
+                vm.OpenObjectCommand.ExecuteAsync().GetAwaiter().GetResult();
+                Layout(content);
+                var mainTabs = Assert.Single(Descendants(content).OfType<TabControl>());
+                Assert.Equal(2, mainTabs.Items.Count);
+                mainTabs.SetCurrentValue(TabControl.SelectedIndexProperty, 1);
+                Layout(content);
+                var calculate = Assert.Single(Descendants(content).OfType<Button>(), button => Equals(button.Content, "Рассчитать"));
+                Assert.Same(vm.CalculateCommand, calculate.Command);
+                Assert.True(calculate.IsEnabled);
+                vm.CalculateCommand.ExecuteAsync().GetAwaiter().GetResult();
+                Layout(content);
+                Assert.Equal(4m, vm.Calculation!.MassKg);
+                var specification = Assert.Single(Descendants(content).OfType<DataGrid>(), grid => ReferenceEquals(grid.ItemsSource, vm.Calculation.Specification));
+                Assert.Single(specification.Items);
+                Assert.All(specification.Columns, column => Assert.True(column.ActualWidth >= column.MinWidth));
+                var specificationScroll = Assert.Single(Descendants(specification).OfType<ScrollViewer>());
+                Assert.True(specificationScroll.ScrollableWidth > 0);
+                specificationScroll.ScrollToRightEnd();
+                Layout(content);
+                Assert.Equal(specificationScroll.ScrollableWidth, specificationScroll.HorizontalOffset);
+                Assert.Contains(Descendants(content).OfType<TextBlock>(), text => text.Text == vm.CalculationDescription);
+                reader.Read = _ => Task.FromResult<IReadOnlyList<CompositionEntry>>(service.Composition()
+                    .Select(entry => entry.ObjectType == ObjectType.Part ? entry with { MassKg = null } : entry).ToArray());
+                vm.CalculateCommand.ExecuteAsync().GetAwaiter().GetResult();
+                Layout(content);
+                Assert.Null(vm.Calculation!.MassKg);
+                Assert.Contains(Descendants(content).OfType<TextBlock>(), text => text.Text == vm.Calculation.Issues[0].Message);
+                reader.Read = _ => Task.FromResult(service.Composition());
                 var componentItem = Assert.IsType<TreeViewItem>(assemblyItem.ItemContainerGenerator.ContainerFromItem(component));
                 componentItem.IsSelected = true;
                 vm.OpenObjectCommand.ExecuteAsync().GetAwaiter().GetResult();
                 Layout(content);
                 Assert.Equal(component.Object.Id, vm.Card!.Id);
+                Assert.Equal(0, mainTabs.SelectedIndex);
                 Assert.Same(component, vm.SelectedTreeNode);
                 Assert.Contains(Descendants(content).OfType<TextBlock>(), text => text.Text == "×2");
                 searchBox.SetCurrentValue(TextBox.TextProperty, "Сборка");
@@ -109,6 +139,18 @@ public sealed class MainWindowBindingsTests
                 Assert.Same(vm.SelectedTreeNode, objects.SelectedItem);
                 Assert.Equal(component.Object.Id, vm.Card!.Id);
 
+                Layout(content, 940, 560);
+                var cardScroll = Assert.Single(Descendants(content).OfType<ScrollViewer>(), scroll => scroll.Name == "CardScroll");
+                Assert.True(cardScroll.ScrollableHeight > 0);
+                cardScroll.ScrollToEnd();
+                Layout(content, 940, 560);
+                var annul = Assert.Single(Descendants(content).OfType<Button>(), button => Equals(button.Content, "Аннулировать версию"));
+                var buttonPosition = annul.TransformToAncestor(cardScroll).Transform(new Point(0, 0));
+                Assert.True(buttonPosition.Y >= 0 && buttonPosition.Y + annul.ActualHeight <= cardScroll.ActualHeight);
+                Layout(content);
+                cardScroll.ScrollToHome();
+                Layout(content);
+
                 var importButton = Assert.Single(Descendants(content).OfType<Button>(), button => Equals(button.Content, "Импортировать папку…"));
                 Assert.Same(vm.ImportCommand, importButton.Command);
                 var reportButton = Assert.Single(Descendants(content).OfType<Button>(), button => Equals(button.Content, "Отчёт импорта"));
@@ -116,7 +158,7 @@ public sealed class MainWindowBindingsTests
                 Assert.False(reportButton.IsEnabled);
                 vm.ImportCommand.ExecuteAsync().GetAwaiter().GetResult();
                 Layout(content);
-                Assert.Empty(Descendants(content).OfType<TabControl>());
+                Assert.Single(Descendants(content).OfType<TabControl>());
                 Assert.True(reportButton.IsEnabled);
                 var reportModel = Assert.Single(presenter.Reports);
                 reportWindow = new ImportReportWindow(reportModel);

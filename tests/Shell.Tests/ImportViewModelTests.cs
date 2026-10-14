@@ -367,7 +367,7 @@ public sealed class ImportViewModelTests
         public FakeImportReportPresenter Presenter { get; } = new();
         public MainViewModel ViewModel { get; }
 
-        public Scenario() => ViewModel = new(Objects, Import, Picker, new FakeCompositionReader(), Presenter) { SearchText = "  Деталь  " };
+        public Scenario() => ViewModel = new(Objects, Import, Picker, new FakeCompositionReader(), Presenter, new FakeCalculationService()) { SearchText = "  Деталь  " };
 
         public async Task OpenAsync()
         {
